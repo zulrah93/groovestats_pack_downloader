@@ -31,7 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
  
 /*⚠️ Always set higher and never change below 100 or you may take down a resource server accidently. ⚠️*/   
-static MINIMUM_TIMEOUT : u64 = 1; // Used as a delay not to be confused with HTTP timeout although this constant maybe renamed to avoid confusion with the term used by TCP sockets
+static MINIMUM_TIMEOUT : u64 = 100; // Used as a delay not to be confused with HTTP timeout although this constant maybe renamed to avoid confusion with the term used by TCP sockets
 
 // To avoid having to type the tuple everywhere -- Rust has a very strict type system
 type RGB = (u8,u8,u8);
