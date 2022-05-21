@@ -1,11 +1,11 @@
 [package]
 name = "groovestats_pack_downloader"
-version = "0.1.0"
+authors = ["dimo_jr <1s16slrse@mozmail.com>"]
+version = "4.2.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-reqwest = { version = "0.11.10", features = ["blocking"] }
-scraper = "0.13.0"
-clap = { version = "3.1.10", features = ["cargo"] }
+reqwest = { version = "0.11.10", features = ["blocking"] } # Download HTML and pack resources off stepmania online repo
+scraper = "0.13.0" # Used to extract pack list from groovestats
+clap = { version = "3.1.10", features = ["cargo"] } # Command line flags so that the tool looks cool to the power users out there
+zip = "0.6.2" # To extract the zip files which the pack repo uses

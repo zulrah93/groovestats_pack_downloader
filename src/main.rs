@@ -2,6 +2,8 @@ use clap::{arg, Command};
 use std::thread::sleep;
 use std::time::Duration;
 use scraper::{Html, Selector};
+use std::fs::File;
+use std::io::copy;
 
 
 /*
@@ -82,15 +84,22 @@ fn get_song_list(endpoint : &str) -> Vec<String> {
         let html = Html::parse_document(html_text.as_str());
         let selector = Selector::parse("option");
         let elements = html.select(selector.as_ref().unwrap());
-        elements.skip(6).map(|e| e.inner_html()).collect()
+        elements.skip(6).map(|e| String::from(e.inner_html().trim())).collect()
     }
     else {
         vec![]
     }
 }
 
-fn download_song_pack(_song_pack_name : &String) {
-    
+fn download_song_pack(song_pack_name : &String) {
+    let download_url = &format!("https://search.stepmaniaonline.net/link/{}.zip", song_pack_name);
+    if let Ok(response) = reqwest::blocking::get(download_url) {
+        println!("Placing '{}.zip' into system memory", song_pack_name);
+        
+    }
+    else {
+        println!("Unable to download at '{}' skipping ...", download_url);
+    }
 }
 
 fn main() {
