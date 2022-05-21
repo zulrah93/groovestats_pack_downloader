@@ -78,16 +78,11 @@ fn get_command_options() -> CommandOptions {
 
 fn get_song_list(endpoint : &str) -> Vec<String> {
     if let Ok(response) = reqwest::blocking::get(endpoint) {
-        let mut songs = vec![];
         let html_text = response.text().unwrap_or_default();
         let html = Html::parse_document(html_text.as_str());
-        let selector = Selector::parse("#ranking_options");
+        let selector = Selector::parse("option");
         let elements = html.select(selector.as_ref().unwrap());
-        for element in elements.skip(6) { // Skip amount may have to change if the HTML of GrooveStats changes so please take note in case of software bugs
-            songs.push(String::from(element.text().next().unwrap_or_default()));
-        }
-        songs
-        
+        elements.skip(6).map(|e| e.inner_html()).collect()
     }
     else {
         vec![]
@@ -106,7 +101,7 @@ fn main() {
        if song_pack_name.is_empty() { // In case the web scraping fails
            continue;
        }
-       println!("Downloading {}...", song_pack_name);
+       println!("Downloading {} ...", song_pack_name);
        download_song_pack(song_pack_name);
        sleep(Duration::from_millis(args.timeout_per_download));
    }
