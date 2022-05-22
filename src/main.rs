@@ -1,13 +1,12 @@
 use clap::{arg, Command};
-use std::thread::sleep;
-use std::time::Duration;
+use colored::Colorize;
 use scraper::{Html, Selector};
 #[allow(unused_imports)] //TODO: Remove once used
 use std::fs::File;
 #[allow(unused_imports)] //TODO: Remove once used
 use std::io::copy;
-use colored::Colorize;
-
+use std::thread::sleep;
+use std::time::Duration;
 
 /*
 
@@ -29,18 +28,17 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 */
- 
-/*⚠️ Always set higher and never change below 100 or you may take down a resource server accidently. ⚠️*/   
-static MINIMUM_TIMEOUT : u64 = 100; // Used as a delay not to be confused with HTTP timeout although this constant maybe renamed to avoid confusion with the term used by TCP sockets
+
+/*⚠️ Always set higher and never change below 100 or you may take down a resource server accidently. ⚠️*/
+static MINIMUM_TIMEOUT: u64 = 100; // Used as a delay not to be confused with HTTP timeout although this constant maybe renamed to avoid confusion with the term used by TCP sockets
 
 // To avoid having to type the tuple everywhere -- Rust has a very strict type system
-type RGB = (u8,u8,u8);
-
+type RGB = (u8, u8, u8);
 
 //Colors (in RGB not Hex) that will be used by this tool feel free to change the values here as the names will be color neutral
-static ERROR_RGB : RGB = (255, 0, 0);
-static OK_RGB : RGB = (245, 66, 155);
-static FINISHED_RGB : RGB = (0,255,0);
+static ERROR_RGB: RGB = (255, 0, 0);
+static OK_RGB: RGB = (245, 66, 155);
+static FINISHED_RGB: RGB = (0, 255, 0);
 
 //-----------------------------------------------------------------------------------------------------------------
 
@@ -48,45 +46,45 @@ static FINISHED_RGB : RGB = (0,255,0);
 
 //FIXME: Refactor to a macro to improve performance if necessary
 #[allow(dead_code)] //FIXME: Remove once used in the near future or depecrated if it will never be used and eventually removed in a future commit
-fn colored_print(string : String, rgb : RGB) {
+fn colored_print(string: String, rgb: RGB) {
     print!("{}", string.truecolor(rgb.0, rgb.1, rgb.2));
 }
 //FIXME: Refactor this as well to a macro in the future for the same reasons as above
-fn colored_println(string : String, rgb : RGB) {
+fn colored_println(string: String, rgb: RGB) {
     println!("{}", string.truecolor(rgb.0, rgb.1, rgb.2));
 }
 
-fn debug_println(string : &String) {
+fn debug_println(string: &String) {
     //FIXME: Should only print if on debug and not on release mode -- use rust macro to check release type
     colored_println(format!("DEBUG: {}", string), FINISHED_RGB);
 }
 
 #[allow(dead_code)] //FIXME: Remove once used in the near future or depecrated if it will never be used and eventually removed in a future commit
-fn debug_print(string : &String) {
+fn debug_print(string: &String) {
     //FIXME: Should only print if on debug and not on release mode -- use rust macro to check release type
     colored_print(format!("DEBUG: {}", string), FINISHED_RGB);
 }
 
 //-----------------------------------------------------------------------------------------------------------------
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct CommandOptions {
-    timeout_per_download : u64, // u64 to avoid casting and higher is better for the server that is hosting the song packs so olease be mindful
+    timeout_per_download: u64, // u64 to avoid casting and higher is better for the server that is hosting the song packs so olease be mindful
     #[allow(dead_code)] //TODO: Remove this once it is not dead code anymore
-    save_pack_path : String, // Location to save the path once the packs are extracted
+    save_pack_path: String, // Location to save the path once the packs are extracted
 }
 
 impl CommandOptions {
-    fn new(timeout_per_download : u64, save_pack_path : String) -> Self {
-        let timeout = if timeout_per_download < MINIMUM_TIMEOUT { // Ensure we don't crash the server by respecting the server owner's precious resources
+    fn new(timeout_per_download: u64, save_pack_path: String) -> Self {
+        let timeout = if timeout_per_download < MINIMUM_TIMEOUT {
+            // Ensure we don't crash the server by respecting the server owner's precious resources
             MINIMUM_TIMEOUT
-        }
-        else {
+        } else {
             timeout_per_download
         };
         CommandOptions {
-           timeout_per_download: timeout,
-           save_pack_path : save_pack_path
+            timeout_per_download: timeout,
+            save_pack_path: save_pack_path,
         }
     }
 }
@@ -97,15 +95,15 @@ impl Default for CommandOptions {
     }
 }
 
-fn stepmania_default_path() -> String { // ⚠️ This assumes stepmania -- if you use a fork or derivative of stepmania feel free to change the defaults per platform
+fn stepmania_default_path() -> String {
+    // ⚠️ This assumes stepmania -- if you use a fork or derivative of stepmania feel free to change the defaults per platform
     if cfg!(windows) {
-        String::default() // TODO: Replace with Stepmania default song pack path for Windows systems
-    }
-    else if cfg!(unix) { 
+        //Default assumes current Stepmania version as of writing will update to default with the latest Stepmania major release version
+        String::from("C:\\Games\\StepMania 5\\Songs") // TODO: Replace with Stepmania default song pack path for Windows systems
+    } else if cfg!(unix) {
         String::default() // TODO: Replace with Stepmania default song pack path for Linux systems
-    }
-    else {
-        String::default() // Only executes if the platform operating system is uknown. We return empty string, which means packs will be saved in current working directory; refer to cd or equivalent command to change the path this should be avoided since most people don't use TempleOS for example.
+    } else {
+        String::from(std::env::current_dir().unwrap_or_default().to_str().unwrap_or_default()) // Only executes if the platform operating system is uknown. We return empty string, which means packs will be saved in current working directory; refer to cd or equivalent command to change the path this should be avoided since most people don't use TempleOS for example.
     }
 }
 
@@ -121,71 +119,112 @@ fn get_command_options() -> CommandOptions {
         -p --pack_download_path <PATH> ... "Where the GrooveStats packs extracted will be placed."
     ).required(false))
     .get_matches();
-    CommandOptions::new(
-        MINIMUM_TIMEOUT,
-        stepmania_default_path(),
-    )
+    CommandOptions::new(MINIMUM_TIMEOUT, stepmania_default_path())
 }
 
-
-
-fn get_song_list(endpoint : &str) -> Vec<String> {
+fn get_song_list(endpoint: &str) -> Vec<String> {
     if let Ok(response) = reqwest::blocking::get(endpoint) {
         let html_text = response.text().unwrap_or_default();
         let html = Html::parse_document(html_text.as_str());
         let selector = Selector::parse("option");
         let elements = html.select(selector.as_ref().unwrap());
-        elements.skip(6).map(|e| String::from(e.inner_html().trim())).collect()
-    }
-    else {
+        elements
+            .skip(52)
+            .map(|e| String::from(e.inner_html().trim()))
+            .collect()
+    } else {
         vec![]
     }
 }
 
 //Called when the downloaded pack resource has invalid bytes to avoid extracting a corrupted song pack
 fn unknown_zip_blob_error() {
-    colored_println(format!("{}","Song pack repo was unable to get zip blob please check network on your end or wait for repo to have a more stable connection."), ERROR_RGB);
+    colored_println(format!("{}","Song pack repo was unable to extract zip blob please check network on your end or wait for repo to have a more stable connection."), ERROR_RGB);
 }
 
-fn download_song_pack(song_pack_name : &String, args : &CommandOptions) {
-    use urlencoding::encode; //FIXME: Move it to global namespace if it will be needed elsewhere in a future revision
-    let download_url = &format!("https://search.stepmaniaonline.net/link/{}.zip", encode(song_pack_name));
+fn download_song_pack(song_pack_name: &String, args: &CommandOptions) {
+    //FIXME: Move these to global namespace if it will be needed elsewhere in a future revision
+    use urlencoding::encode; 
+    let download_url = &format!(
+        "https://search.stepmaniaonline.net/static/new/{}.zip", //FIXME: Potential problem is that stepmania online may not host every pack that is part of GrooveStats eventually I will refactor to take a json config file that lists all a possible mirrors like Zenius for example.
+        encode(song_pack_name)
+    );
     debug_println(download_url);
     if let Ok(response) = reqwest::blocking::get(download_url) {
-        colored_println(format!("Extracting '{}.zip' into system memory", song_pack_name), OK_RGB);
+        colored_println(
+            format!("Extracting '{}.zip' into system memory", song_pack_name),
+            OK_RGB,
+        );
         if let Ok(zip_blob) = response.bytes() {
             if zip_blob.len() > 0 {
                 let compressed_size = zip_blob.len();
-                let mut uncompressed_size = compressed_size; 
-                uncompressed_size /= 1; //FIXME: Change this to get the actual uncompressed size
-                colored_println(format!("Song pack: {}  Compressed (bytes): {} Uncompressed (bytes): {}", song_pack_name, compressed_size, uncompressed_size), FINISHED_RGB);
-            }
-            else {
+                use std::io::Cursor; //FIXME: Move it to global namespace if it will be needed elsewhere in a future revision
+                let ram_file = Cursor::new(zip_blob);
+                if let Ok(archive) = zip::ZipArchive::new(ram_file).as_mut() {
+                    let pack_directory_path = format!("{}{}",args.save_pack_path, std::path::MAIN_SEPARATOR);
+                    if archive.extract(&pack_directory_path).is_err() {
+                        unknown_zip_blob_error();
+                    }
+                    else {
+                        use std::path::Path;
+                        use filesize::PathExt;
+                        let uncompressed_size = Path::new(&pack_directory_path).size_on_disk().unwrap_or_default() as usize;
+                        colored_println(
+                            format!(
+                                "Song Pack: {} [{}] Compressed [RAM] (Bytes): {} Uncompressed [Disk] (Bytes): {} Extracted: [✔️]", //FIXME: Check if Terminal supports Unicode and provide a fallback in case the Terminal is from the stone ages
+                                song_pack_name, pack_directory_path, compressed_size, uncompressed_size
+                            ),
+                            FINISHED_RGB,
+                        );
+                    }
+                }
+                else {  
+                    unknown_zip_blob_error();
+                }
+            } else {
                 unknown_zip_blob_error();
             }
-        }
-        else {
+        } else {
             unknown_zip_blob_error();
         }
-        colored_println(format!("Saving pack on disk on {}{}{}",args.save_pack_path, std::path::MAIN_SEPARATOR, song_pack_name), OK_RGB);
-    }
-    else {
-        colored_println(format!("Unable to download at '{}' skipping ...", download_url), ERROR_RGB);
+        colored_println(
+            format!(
+                "Saving pack on disk on {}{}{}",
+                args.save_pack_path,
+                std::path::MAIN_SEPARATOR,
+                song_pack_name
+            ),
+            OK_RGB,
+        );
+    } else {
+        colored_println(
+            format!("Unable to download at '{}' skipping ...", download_url),
+            ERROR_RGB,
+        );
     }
 }
 
 fn main() {
-   let args = get_command_options();
-   let groovestat_https_endpoint = "https://groovestats.com/index.php?page=songscores&gameid=1";
-   colored_println(format!("Recieving song pack list from groove stats from the following endpoint: {}", groovestat_https_endpoint), OK_RGB);
-   for song_pack_name in &get_song_list(groovestat_https_endpoint) {
-       if song_pack_name.is_empty() { // In case the web scraping fails
-           continue;
-       }
-       format!("Downloading {} ...", song_pack_name);
-       download_song_pack(song_pack_name, &args);
-       sleep(Duration::from_millis(args.timeout_per_download));
-   }
-   colored_println(String::from("Finished downloading and extracting all packs"), FINISHED_RGB);
-   
+    let args = get_command_options();
+    let groovestat_https_endpoint = "https://groovestats.com/index.php?page=songscores&gameid=1";
+    colored_println(
+        format!(
+            "Recieving song pack list from groove stats from the following endpoint: {}",
+            groovestat_https_endpoint
+        ),
+        OK_RGB,
+    );
+    for song_pack_name in &get_song_list(groovestat_https_endpoint) {
+        if song_pack_name.is_empty() {
+            // In case the web scraping fails
+            continue;
+        }
+        format!("Downloading {} ...", song_pack_name);
+        download_song_pack(song_pack_name, &args);
+        sleep(Duration::from_millis(args.timeout_per_download));
+    }
+    colored_println(
+        String::from("Finished downloading and extracting all packs"),
+        FINISHED_RGB,
+    );
 }
