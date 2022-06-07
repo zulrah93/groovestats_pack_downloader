@@ -40,6 +40,10 @@ static ERROR_RGB: RGB = (255, 0, 0);
 static OK_RGB: RGB = (245, 66, 155);
 static FINISHED_RGB: RGB = (0, 255, 0);
 
+fn debug() -> bool {
+    cfg!(debug_assertions)
+}
+
 //-----------------------------------------------------------------------------------------------------------------
 
 //FIXME: Eventually move these functions into their own source file
@@ -55,14 +59,16 @@ fn colored_println(string: String, rgb: RGB) {
 }
 
 fn debug_println(string: &String) {
-    //FIXME: Should only print if on debug and not on release mode -- use rust macro to check release type
-    colored_println(format!("DEBUG: {}", string), FINISHED_RGB);
+    if debug() {
+        colored_println(format!("DEBUG: {}", string), FINISHED_RGB);
+    }
 }
 
 #[allow(dead_code)] //FIXME: Remove once used in the near future or depecrated if it will never be used and eventually removed in a future commit
 fn debug_print(string: &String) {
-    //FIXME: Should only print if on debug and not on release mode -- use rust macro to check release type
-    colored_print(format!("DEBUG: {}", string), FINISHED_RGB);
+    if debug() {
+        colored_print(format!("DEBUG: {}", string), FINISHED_RGB);
+    }
 }
 
 //-----------------------------------------------------------------------------------------------------------------
@@ -70,7 +76,6 @@ fn debug_print(string: &String) {
 #[derive(Debug, Clone)]
 struct CommandOptions {
     timeout_per_download: u64, // u64 to avoid casting and higher is better for the server that is hosting the song packs so olease be mindful
-    #[allow(dead_code)] //TODO: Remove this once it is not dead code anymore
     save_pack_path: String, // Location to save the path once the packs are extracted
 }
 
@@ -86,6 +91,10 @@ impl CommandOptions {
             timeout_per_download: timeout,
             save_pack_path: save_pack_path,
         }
+    }
+
+    fn print(&self) {
+        colored_println(format!("CONFIGURATION: Thread Sleep: {} [ms] Save To: [{}] ", self.timeout_per_download, self.save_pack_path), FINISHED_RGB);
     }
 }
 
@@ -206,6 +215,7 @@ fn download_song_pack(song_pack_name: &String, args: &CommandOptions) {
 
 fn main() {
     let args = get_command_options();
+    args.print();
     let groovestat_https_endpoint = "https://groovestats.com/index.php?page=songscores&gameid=1";
     colored_println(
         format!(
